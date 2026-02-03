@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Towers</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    text-align: center;
+  }
+
+  #status {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(13, 40px);
+    gap: 2px;
+    justify-content: center;
+    margin: 20px auto;
+  }
+
+  .cell {
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .highlightMove {
+    background: #d0ebff;
+    z-index: 2;
+  }
+
+  .highlightCapture {
+    background: #ffeb99;
+    z-index: 1;
+  }
+
+  .piece {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .red { background: #d9534f; }
+  .blue { background: #0275d8; }
+  .neutral { background: #777; }
+
+  #modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #modalContent {
+    background: white;
+    padding: 20px;
+    width: 420px;
+    max-width: 90%;
+    border-radius: 6px;
+    text-align: left;
+  }
+
+  button {
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Gravity Towers</h1>
+<div id="status"></div>
+<div id="board"></div>
+
+<button id="playAgain" style="display:none;">Play Again</button>
+
+<div id="modal">
+  <div id="modalContent">
+    <h2>How to Play</h2>
+    <ul>
+      <li>Move one piece or tower one square (diagonals allowed).</li>
+      <li>Landing on any piece captures it and adds its mass.</li>
+      <li>Towers (height &gt; 1) pull in nearby pieces automatically.</li>
+      <li>Blue squares show where you can move.</li>
+      <li>Yellow shows gravity capture range beyond movement.</li>
+      <li>Final capture wins.</li>
+    </ul>
+    <button id="startGame">Start Game</button>
+  </div>
+</div>
+
+<script>
+const WIDTH = 13;
+const HEIGHT = 15;
+
+let board = [];
+let currentPlayer = "red";
+let selected = null;
+let animating = false;
+
+const boardDiv = document.getElementById("board");
+const statusDiv = document.getElementById("status");
+const playAgainBtn = document.getElementById("playAgain");
+
+document.getElementById("startGame").onclick = () => {
+  document.getElementById("modal").style.display = "none";
+  startGame();
+};
+
+playAgainBtn.onclick = startGame;
+
+function startGame() {
+  board = Array.from({length: HEIGHT}, () => Array(WIDTH).fill(null));
+  placePieces("red");
+  placePieces("blue");
+  placePieces("neutral");
+  currentPlayer = "red";
+  selected = null;
+  playAgainBtn.style.display = "none";
+  updateStatus();
+  render();
+}
+
+function placePieces(color) {
+  let placed = 0;
+  while (placed < 5) {
+    const x = Math.floor(Math.random() * WIDTH);
+    const y = Math.floor(Math.random() * HEIGHT);
+    if (board[y][x]) continue;
+
+    let ok = true;
+    for (let yy = 0; yy < HEIGHT; yy++) {
+      for (let xx = 0; xx < WIDTH; xx++) {
+        if (board[yy][xx] &&
+            Math.max(Math.abs(xx - x), Math.abs(yy - y)) <= 1) {
+          ok = false;
+        }
+      }
+    }
+
+    if (ok) {
+      board[y][x] = { color, height: 1 };
+      placed++;
+    }
+  }
+}
+
+function updateStatus() {
+  statusDiv.textContent = currentPlayer.toUpperCase() + "'s Turn";
+}
+
+function render() {
+  boardDiv.innerHTML = "";
+
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      if (selected && canMove(selected.x, selected.y, x, y)) {
+        cell.classList.add("highlightMove");
+      }
+
+      const piece = board[y][x];
+      if (piece) {
+        const p = document.createElement("div");
+        p.className = `piece ${piece.color}`;
+        p.textContent = piece.height;
+        cell.appendChild(p);
+
+        if (piece.height > 1) {
+          cell.onmouseenter = () => showCaptureRadius(x, y, piece.height);
+          cell.onmouseleave = clearCaptureRadius;
+        }
+      }
+
+      cell.onclick = () => handleClick(x, y);
+      boardDiv.appendChild(cell);
+    }
+  }
+}
+
+function handleClick(x, y) {
+  if (animating) return;
+
+  const piece = board[y][x];
+
+  if (!selected) {
+    if (piece && piece.color === currentPlayer) {
+      selected = { x, y };
+      render();
+    }
+    return;
+  }
+
+  if (x === selected.x && y === selected.y) {
+    selected = null;
+    render();
+    return;
+  }
+
+  if (!canMove(selected.x, selected.y, x, y)) return;
+
+  executeMove(selected.x, selected.y, x, y);
+  selected = null;
+}
+
+function canMove(x1, y1, x2, y2) {
+  if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT) return false;
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)) === 1;
+}
+
+function executeMove(x1, y1, x2, y2) {
+  const tower = board[y1][x1];
+  const target = board[y2][x2];
+
+  board[y1][x1] = null;
+  board[y2][x2] = tower;
+
+  if (target) {
+    tower.height += target.height;
+  }
+
+  render();
+
+  if (tower.height > 1) {
+    applyGravity(x2, y2);
+  }
+
+  endTurn();
+}
+
+function applyGravity(x, y) {
+  const tower = board[y][x];
+
+  let absorbed = true;
+  while (absorbed) {
+    absorbed = false;
+    const range = tower.height - 1;
+
+    for (let yy = 0; yy < HEIGHT; yy++) {
+      for (let xx = 0; xx < WIDTH; xx++) {
+        if (xx === x && yy === y) continue;
+        const p = board[yy][xx];
+        if (!p) continue;
+
+        const dist = Math.max(Math.abs(xx - x), Math.abs(yy - y));
+        if (dist <= range) {
+          tower.height += p.height;
+          board[yy][xx] = null;
+          absorbed = true;
+        }
+      }
+    }
+  }
+}
+
+function endTurn() {
+  if (checkWin()) return;
+
+  currentPlayer = currentPlayer === "red" ? "blue" : "red";
+
+  if (!playerHasPieces(currentPlayer)) {
+    currentPlayer = currentPlayer === "red" ? "blue" : "red";
+  }
+
+  updateStatus();
+  render();
+}
+
+function playerHasPieces(color) {
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell && cell.color === color) return true;
+    }
+  }
+  return false;
+}
+
+function checkWin() {
+  let count = 0;
+  for (const row of board) for (const cell of row) if (cell) count++;
+
+  if (count === 1) {
+    statusDiv.textContent = currentPlayer.toUpperCase() + " WINS!";
+    playAgainBtn.style.display = "inline-block";
+    return true;
+  }
+  return false;
+}
+
+function showCaptureRadius(x, y, height) {
+  clearCaptureRadius();
+  const range = height - 1;
+
+  for (let yy = 0; yy < HEIGHT; yy++) {
+    for (let xx = 0; xx < WIDTH; xx++) {
+      const dist = Math.max(Math.abs(xx - x), Math.abs(yy - y));
+      if (dist > 1 && dist <= range) {
+        boardDiv.children[yy * WIDTH + xx].classList.add("highlightCapture");
+      }
+    }
+  }
+}
+
+function clearCaptureRadius() {
+  document.querySelectorAll(".highlightCapture")
+    .forEach(c => c.classList.remove("highlightCapture"));
+}
+</script>
+
+</body>
+</html>
+
