@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Towers</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #f4f4f4;
+}
+
+#status {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 10px;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(13, 40px);
+  gap: 2px;
+  justify-content: center;
+  margin: 20px auto;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #999;
+  background: white;
+  position: relative;
+}
+
+.highlightMove {
+  background: #d0ebff;
+}
+
+.highlightCapture {
+  background: #ffeb9
+
