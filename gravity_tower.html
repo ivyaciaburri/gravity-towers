@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Towers</title>
+
+<style>
+  body { font-family: Arial, sans-serif; background:#f4f4f4; text-align:center; }
+  #status { font-size:18px; font-weight:bold; margin:10px; }
+  #board {
+    display:grid;
+    grid-template-columns:repeat(13,40px);
+    gap:2px;
+    justify-content:center;
+    margin:20px auto;
+  }
+  .cell {
+    width:40px; height:40px;
+    background:white; border:1px solid #999;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .highlightMove { background:#d0ebff; }
+  .highlightCapture { background:#ffeb99; }
+
+  .piece {
+    width:30px; height:30px; border-radius:50%;
+    color:white; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+  }
+  .red{background:#d9534f;}
+  .blue{background:#0275d8;}
+  .neutral{background:#777;}
+
+  #modal {
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex; align-items:center; justify-content:center;
+  }
+  #modalContent {
+    background:white; padding:20px;
+    width:420px; max-width:90%;
+    border-radius:6px; text-align:left;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Gravity Towers</h1>
+<div id="status"></div>
+<div id="board"></div>
+<button id="playAgain" style="display:none;">Play Again</button>
+
+<div id="modal">
+  <div id="modalContent">
+    <h2>How to Play</h2>
+    <ul>
+      <li>Move one piece one square (diagonals allowed).</li>
+      <li>Landing on any piece captures it.</li>
+      <li>Towers have gravity at all times.</li>
+      <li>Moving into a gravity field causes capture.</li>
+      <li>Blue = movement, Yellow = gravity ring.</li>
+      <li>Final capture wins.</li>
+    </ul>
+    <button id="startGame">Start Game</button>
+  </div>
+</div>
+
+<script>
+const WIDTH=13, HEIGHT=15;
+let board=[], currentPlayer="red", selected=null;
+
+const boardDiv=document.getElementById("board");
+const statusDiv=document.getElementById("status");
+const playAgainBtn=document.getElementById("playAgain");
+
+document.getElementById("startGame").onclick=()=>{
+  document.getElementById("modal").style.display="none";
+  startGame();
+};
+playAgainBtn.onclick=startGame;
+
+function startGame(){
+  board=Array.from({length:HEIGHT},()=>Array(WIDTH).fill(null));
+  place("red"); place("blue"); place("neutral");
+  currentPlayer="red"; selected=null;
+  playAgainBtn.style.display="none";
+  updateStatus(); render();
+}
+
+function place(color){
+  let n=0;
+  while(n<5){
+    let x=Math.random()*WIDTH|0, y=Math.random()*HEIGHT|0;
+    if(board[y][x]) continue;
+    let ok=true;
+    for(let yy=0;yy<HEIGHT;yy++)
+      for(let xx=0;xx<WIDTH;xx++)
+        if(board[yy][xx] &&
+           Math.max(Math.abs(xx-x),Math.abs(yy-y))<=1) ok=false;
+    if(ok){ board[y][x]={color,height:1}; n++; }
+  }
+}
+
+function updateStatus(){
+  statusDiv.textContent=currentPlayer.toUpperCase()+"'s Turn";
+}
+
+function render(){
+  boardDiv.innerHTML="";
+  for(let y=0;y<HEIGHT;y++)for(let x=0;x<WIDTH;x++){
+    const c=document.createElement("div");
+    c.className="cell";
+
+    if(selected && canMove(selected.x,selected.y,x,y))
+      c.classList.add("highlightMove");
+
+    const p=board[y][x];
+    if(p){
+      const d=document.createElement("div");
+      d.className=`piece ${p.color}`;
+      d.textContent=p.height;
+      c.appendChild(d);
+
+      if(p.height>1){
+        c.onmouseenter=()=>showGravity(x,y,p.height);
+        c.onmouseleave=clearGravity;
+      }
+    }
+    c.onclick=()=>click(x,y);
+    boardDiv.appendChild(c);
+  }
+}
+
+function click(x,y){
+  const p=board[y][x];
+  if(!selected){
+    if(p && p.color===currentPlayer){ selected={x,y}; render(); }
+    return;
+  }
+  if(x===selected.x && y===selected.y){
+    selected=null; clearGravity(); render(); return;
+  }
+  if(!canMove(selected.x,selected.y,x,y)) return;
+  move(selected.x,selected.y,x,y);
+}
+
+function canMove(x1,y1,x2,y2){
+  return x2>=0&&y2>=0&&x2<WIDTH&&y2<HEIGHT &&
+    Math.max(Math.abs(x1-x2),Math.abs(y1-y2))===1;
+}
+
+function move(x1,y1,x2,y2){
+  clearGravity(); selected=null;
+
+  const mover=board[y1][x1];
+  const target=board[y2][x2];
+
+  board[y1][x1]=null;
+  board[y2][x2]=mover;
+
+  if(target) mover.height+=target.height;
+
+  resolveAllGravity();
+  endTurn();
+}
+
+function resolveAllGravity(){
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let y=0;y<HEIGHT;y++)for(let x=0;x<WIDTH;x++){
+      const t=board[y][x];
+      if(!t||t.height<=1) continue;
+      const range=t.height-1;
+      for(let yy=0;yy<HEIGHT;yy++)for(let xx=0;xx<WIDTH;xx++){
+        if(xx===x&&yy===y) continue;
+        const p=board[yy][xx];
+        if(!p) continue;
+        const d=Math.max(Math.abs(xx-x),Math.abs(yy-y));
+        if(d<=range){
+          t.height+=p.height;
+          board[yy][xx]=null;
+          changed=true;
+        }
+      }
+    }
+  }
+}
+
+function endTurn(){
+  if(checkWin()) return;
+  currentPlayer=currentPlayer==="red"?"blue":"red";
+  if(!hasPieces(currentPlayer))
+    currentPlayer=currentPlayer==="red"?"blue":"red";
+  updateStatus(); render();
+}
+
+function hasPieces(color){
+  for(const r of board)for(const c of r) if(c&&c.color===color) return true;
+  return false;
+}
+
+function checkWin(){
+  let count=0;
+  for(const r of board)for(const c of r) if(c) count++;
+  if(count===1){
+    statusDiv.textContent=currentPlayer.toUpperCase()+" WINS!";
+    playAgainBtn.style.display="inline-block";
+    return true;
+  }
+  return false;
+}
+
+function showGravity(x,y,h){
+  clearGravity();
+  const range=h-1;
+  for(let yy=0;yy<HEIGHT;yy++)for(let xx=0;xx<WIDTH;xx++){
+    const d=Math.max(Math.abs(xx-x),Math.abs(yy-y));
+    if(d>=2 && d<=range)
+      boardDiv.children[yy*WIDTH+xx]
+        .classList.add("highlightCapture");
+  }
+}
+
+function clearGravity(){
+  document.querySelectorAll(".highlightCapture")
+    .forEach(c=>c.classList.remove("highlightCapture"));
+}
+</script>
+
+</body>
+</html>
+
