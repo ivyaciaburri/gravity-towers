@@ -174,7 +174,8 @@ function executeMove(x1,y1,x2,y2){
   selected = null;
 
   const animations = resolveGravity();
-  render();
+
+  // render board will happen AFTER animations
   setTimeout(() => { playAnimations(animations, endTurn); }, 300);
 }
 
@@ -209,22 +210,25 @@ function resolveGravity(){
 }
 
 function playAnimations(list, done){
-  if(list.length===0){ done(); return; }
+  if(list.length===0){ render(); done(); return; }
   let finished=0;
   list.forEach(anim=>{
-    const {from,to}=anim;
-    const index=from.y*WIDTH+from.x;
-    const pieceEl=boardDiv.children[index]?.querySelector(".piece");
-    if(!pieceEl){ finished++; if(finished===list.length) done(); return; }
-    const dx=(to.x-from.x)*42;
-    const dy=(to.y-from.y)*42;
+    const {from,to} = anim;
+    const index = from.y*WIDTH + from.x;
+    const pieceEl = boardDiv.children[index]?.querySelector(".piece");
+    if(!pieceEl){ finished++; if(finished===list.length){ render(); done(); } return; }
+
+    const dx = (to.x-from.x)*42;
+    const dy = (to.y-from.y)*42;
     const dist = Math.max(Math.abs(to.x-from.x), Math.abs(to.y-from.y));
-    const duration = 1.2 + dist*0.8; // slower animation
+    const duration = 2 + dist*1.5; // slow, visible for classroom
+
     pieceEl.style.transition = `transform ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
     pieceEl.style.transform = `translate(${dx}px,${dy}px) scale(0.1)`;
+
     pieceEl.ontransitionend = ()=>{
       finished++;
-      if(finished===list.length) done();
+      if(finished===list.length){ render(); done(); }
     };
   });
 }
