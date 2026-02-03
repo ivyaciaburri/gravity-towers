@@ -155,32 +155,34 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function move(x1,y1,x2,y2){
-    let tower=board[y1][x1];
-    let target=board[y2][x2];
+    const tower = board[y1][x1];
+    const target = board[y2][x2];
+
+    // Remove moving piece from original cell immediately
+    board[y1][x1] = null;
 
     if(target){
       animateCapture(x2,y2,x2,y2,target.height,()=>{
-        tower.height+=target.height;
-        board[y2][y2]=tower;
-        board[y1][x1]=null;
+        tower.height += target.height;
+        board[y2][y2] = tower;
         applyGravityAnimated(x2,y2);
       });
     } else {
-      board[y2][x2]=tower;
-      board[y1][x1]=null;
+      board[y2][x2] = tower;
       applyGravityAnimated(x2,y2);
     }
   }
 
   function applyGravityAnimated(x,y){
-    const tower=board[y][x];
-    const collectLoop=()=>{
+    const tower = board[y][x];
+
+    const collectLoop = () => {
       let toCollect=[];
-      const range=tower.height-1;
+      const range = tower.height-1;
 
       for(let yy=0;yy<HEIGHT;yy++){
         for(let xx=0;xx<WIDTH;xx++){
-          let p=board[yy][xx];
+          const p = board[yy][xx];
           if(p && (xx!=x || yy!=y) && Math.max(Math.abs(xx-x),Math.abs(yy-y))<=range)
             toCollect.push({x:xx,y:yy,height:p.height});
         }
@@ -192,15 +194,15 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
       }
 
-      const next=()=>{
+      const next = () => {
         if(toCollect.length===0){
-          collectLoop(); // recalc range after each batch
+          collectLoop(); // Recalculate range after each batch
           return;
         }
-        const p=toCollect.shift();
+        const p = toCollect.shift();
         animateCapture(p.x,p.y,x,y,p.height,()=>{
-          tower.height+=p.height;
-          board[p.y][p.x]=null;
+          tower.height += p.height;
+          board[p.y][p.x] = null;
           next();
         });
       };
@@ -211,14 +213,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function animateCapture(fromX,fromY,toX,toY,height,callback){
     const fromCell = boardDiv.children[fromY*WIDTH+fromX];
-    const pieceDiv = fromCell.querySelector(".piece");
+    const pieceDiv = fromCell ? fromCell.querySelector(".piece") : null;
     if(!pieceDiv){ callback(); return; }
 
     const rect = fromCell.getBoundingClientRect();
     pieceDiv.style.position="fixed";
-    pieceDiv.style.left=rect.left+"px";
-    pieceDiv.style.top=rect.top+"px";
-    pieceDiv.style.zIndex=1000;
+    pieceDiv.style.left = rect.left+"px";
+    pieceDiv.style.top = rect.top+"px";
+    pieceDiv.style.zIndex = 1000;
 
     document.body.appendChild(pieceDiv);
 
@@ -228,30 +230,30 @@ document.addEventListener("DOMContentLoaded", function() {
     const dx = Math.abs(destRect.left - rect.left);
     const dy = Math.abs(destRect.top - rect.top);
     const distance = Math.sqrt(dx*dx + dy*dy);
-    const duration = 0.8 + distance/200; // farther pieces take longer
+    const duration = 0.8 + distance/200; // farther pieces move longer
 
     requestAnimationFrame(()=>{
-      pieceDiv.style.transition=`all ${duration}s cubic-bezier(0.4,0,0.2,1)`;
-      pieceDiv.style.left=destRect.left+"px";
-      pieceDiv.style.top=destRect.top+"px";
+      pieceDiv.style.transition = `all ${duration}s cubic-bezier(0.4,0,0.2,1)`;
+      pieceDiv.style.left = destRect.left+"px";
+      pieceDiv.style.top = destRect.top+"px";
     });
 
-    pieceDiv.addEventListener("transitionend",()=>{
+    pieceDiv.addEventListener("transitionend", ()=>{
       pieceDiv.remove();
       callback();
     }, {once:true});
   }
 
   function switchTurn(){
-    currentPlayer=currentPlayer==="red"?"blue":"red";
-    statusDiv.textContent=currentPlayer.charAt(0).toUpperCase()+currentPlayer.slice(1)+"'s Turn";
+    currentPlayer = currentPlayer==="red"?"blue":"red";
+    statusDiv.textContent = currentPlayer.charAt(0).toUpperCase()+currentPlayer.slice(1)+"'s Turn";
   }
 
   function checkWin(){
     let count=0;
     for(let row of board) for(let cell of row) if(cell) count++;
     if(count===1){
-      statusDiv.textContent=currentPlayer.toUpperCase()+" WINS!";
+      statusDiv.textContent = currentPlayer.toUpperCase()+" WINS!";
       playAgainBtn.style.display="inline-block";
       return true;
     }
