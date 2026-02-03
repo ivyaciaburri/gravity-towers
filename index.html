@@ -38,5 +38,295 @@ body {
 }
 
 .highlightCapture {
-  background: #ffeb9
+  background: #ffeb99;
+}
 
+.piece {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 5px;
+  left: 5px;
+}
+
+.red { background: #d9534f; }
+.blue { background: #0275d8; }
+.neutral { background: #777; }
+
+#modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#modalContent {
+  background: white;
+  padding: 20px;
+  width: 420px;
+  border-radius: 6px;
+  text-align: left;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Gravity Towers</h1>
+<div id="status"></div>
+<div id="board"></div>
+
+<div id="modal">
+  <div id="modalContent">
+    <h2>How to Play</h2>
+    <ul>
+      <li>Move one piece one square (including diagonals).</li>
+      <li>Landing on another piece stacks mass.</li>
+      <li>Towers (height ≥ 2) have gravity at all times.</li>
+      <li>Entering gravity causes capture.</li>
+      <li>The game ends when all mass is in one tower.</li>
+    </ul>
+    <button id="startGame">Start Game</button>
+  </div>
+</div>
+
+<script>
+const WIDTH = 13;
+const HEIGHT = 15;
+
+let board = [];
+let currentPlayer = "red";
+let selected = null;
+let totalMass = 0;
+
+const boardDiv = document.getElementById("board");
+const statusDiv = document.getElementById("status");
+
+document.getElementById("startGame").onclick = () => {
+  document.getElementById("modal").style.display = "none";
+  startGame();
+};
+
+function startGame() {
+  board = Array.from({ length: HEIGHT }, () => Array(WIDTH).fill(null));
+  totalMass = 0;
+
+  placePieces("red");
+  placePieces("blue");
+  placePieces("neutral");
+
+  currentPlayer = "red";
+  selected = null;
+  updateStatus();
+  render();
+}
+
+function placePieces(color) {
+  let placed = 0;
+  while (placed < 5) {
+    const x = Math.floor(Math.random() * WIDTH);
+    const y = Math.floor(Math.random() * HEIGHT);
+    if (!board[y][x]) {
+      board[y][x] = { color, height: 1 };
+      totalMass++;
+      placed++;
+    }
+  }
+}
+
+function updateStatus() {
+  statusDiv.textContent = currentPlayer.toUpperCase() + "'s Turn";
+}
+
+function render() {
+  boardDiv.innerHTML = "";
+
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      if (selected && canMove(selected.x, selected.y, x, y)) {
+        cell.classList.add("highlightMove");
+      }
+
+      const piece = board[y][x];
+      if (piece) {
+        const el = document.createElement("div");
+        el.className = `piece ${piece.color}`;
+        el.textContent = piece.height;
+        cell.appendChild(el);
+      }
+
+      cell.onclick = () => handleClick(x, y);
+      boardDiv.appendChild(cell);
+    }
+  }
+}
+
+function handleClick(x, y) {
+  const piece = board[y][x];
+
+  if (!selected) {
+    if (piece && piece.color === currentPlayer) {
+      selected = { x, y };
+      render();
+    }
+    return;
+  }
+
+  if (!canMove(selected.x, selected.y, x, y)) {
+    selected = null;
+    render();
+    return;
+  }
+
+  executeMove(selected.x, selected.y, x, y);
+}
+
+function canMove(x1, y1, x2, y2) {
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)) === 1;
+}
+
+function executeMove(x1, y1, x2, y2) {
+  const mover = board[y1][x1];
+  const target = board[y2][x2];
+
+  board[y1][x1] = null;
+  board[y2][x2] = mover;
+
+  if (target) mover.height += target.height;
+
+  selected = null;
+
+  const animations = resolveGravity();
+
+  render();
+
+  // slight pause so students can register what's happening
+  setTimeout(() => {
+    playAnimations(animations, endTurn);
+  }, 300);
+}
+
+function resolveGravity() {
+  const animations = [];
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const tower = board[y][x];
+        if (!tower || tower.height < 2) continue;
+
+        const range = tower.height - 1;
+
+        for (let yy = 0; yy < HEIGHT; yy++) {
+          for (let xx = 0; xx < WIDTH; xx++) {
+            if (xx === x && yy === y) continue;
+            const piece = board[yy][xx];
+            if (!piece) continue;
+
+            const dist = Math.max(Math.abs(xx - x), Math.abs(yy - y));
+            if (dist <= range) {
+              animations.push({
+                from: { x: xx, y: yy },
+                to: { x, y }
+              });
+
+              tower.height += piece.height;
+              board[yy][xx] = null;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return animations;
+}
+
+function playAnimations(list, done) {
+  if (list.length === 0) {
+    done();
+    return;
+  }
+
+  let finished = 0;
+
+  list.forEach(anim => {
+    const { from, to } = anim;
+    const index = from.y * WIDTH + from.x;
+    const pieceEl = boardDiv.children[index]?.querySelector(".piece");
+
+    if (!pieceEl) {
+      finished++;
+      if (finished === list.length) done();
+      return;
+    }
+
+    const dx = (to.x - from.x) * 42;
+    const dy = (to.y - from.y) * 42;
+
+    const dist = Math.max(
+      Math.abs(to.x - from.x),
+      Math.abs(to.y - from.y)
+    );
+
+    const duration = 1.2 + dist * 0.8; // SLOW and readable
+    pieceEl.style.transition =
+      `transform ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
+
+    pieceEl.style.transform =
+      `translate(${dx}px, ${dy}px) scale(0.1)`;
+
+    pieceEl.ontransitionend = () => {
+      finished++;
+      if (finished === list.length) done();
+    };
+  });
+}
+
+function endTurn() {
+  if (checkWin()) return;
+
+  currentPlayer = currentPlayer === "red" ? "blue" : "red";
+  updateStatus();
+  render();
+}
+
+function checkWin() {
+  let pieces = 0;
+  let lastPiece = null;
+
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell) {
+        pieces++;
+        lastPiece = cell;
+      }
+    }
+  }
+
+  if (pieces === 1 && lastPiece.height === totalMass) {
+    statusDiv.textContent = lastPiece.color.toUpperCase() + " WINS!";
+    return true;
+  }
+
+  return false;
+}
+</script>
+
+</body>
+</html>
