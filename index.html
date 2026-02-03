@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -126,6 +125,8 @@ const playAgainBtn = document.getElementById("playAgain");
 
 function closeModal() {
   document.getElementById("modal").style.display = "none";
+  setupBoard(); // initialize game when modal closes
+  render();
 }
 
 // Check adjacency including diagonals
@@ -226,4 +227,80 @@ function hasLegalMove(x, y) {
 }
 
 // Check if moving from (x1,y1) to (x2,y2) is legal
-function
+function canMove(x1, y1, x2, y2) {
+  if (!board[y1][x1]) return false;
+  if (Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)) > 1) return false;
+  if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT) return false;
+  return true;
+}
+
+// Move a piece/tower
+function move(x1, y1, x2, y2) {
+  let tower = board[y1][x1];
+  let target = board[y2][x2];
+
+  if (target) {
+    tower.height += target.height;
+  }
+
+  board[y2][x2] = tower;
+  board[y1][x1] = null;
+
+  applyGravity(x2, y2);
+  if (!checkWin()) switchTurn();
+}
+
+// Apply tower “gravity” captures
+function applyGravity(x, y) {
+  let tower = board[y][x];
+  let range = tower.height - 1;
+
+  for (let yy = 0; yy < HEIGHT; yy++) {
+    for (let xx = 0; xx < WIDTH; xx++) {
+      if ((xx !== x || yy !== y) && board[yy][xx]) {
+        let dist = Math.max(Math.abs(xx - x), Math.abs(yy - y));
+        if (dist <= range) {
+          tower.height += board[yy][xx].height;
+          board[yy][xx] = null;
+        }
+      }
+    }
+  }
+}
+
+// Switch turns
+function switchTurn() {
+  currentPlayer = currentPlayer === "red" ? "blue" : "red";
+  statusDiv.textContent =
+    currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1) + "'s Turn";
+}
+
+// Check if game has been won
+function checkWin() {
+  let count = 0;
+  for (let row of board) {
+    for (let cell of row) {
+      if (cell) count++;
+    }
+  }
+
+  if (count === 1) {
+    statusDiv.textContent = currentPlayer.toUpperCase() + " WINS!";
+    playAgainBtn.style.display = "inline-block";
+    return true;
+  }
+  return false;
+}
+
+// Reset button
+playAgainBtn.onclick = () => {
+  setupBoard();
+  render();
+};
+
+// Initialize page but wait for modal to start
+// setupBoard() and render() are called when modal closes
+</script>
+
+</body>
+</html>
