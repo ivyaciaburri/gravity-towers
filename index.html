@@ -4,72 +4,38 @@
 <meta charset="UTF-8">
 <title>Gravity Towers</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background: #f4f4f4;
-  }
-  h1 { margin-bottom: 5px; }
-  #status { margin: 10px; font-size: 18px; font-weight: bold; }
+  body { font-family: Arial, sans-serif; text-align:center; background:#f4f4f4; }
+  h1 { margin-bottom:5px; }
+  #status { margin:10px; font-size:18px; font-weight:bold; }
   #board {
-    display: grid;
-    grid-template-columns: repeat(13, 40px);
-    gap: 2px;
-    justify-content: center;
-    margin: 20px auto;
-    position: relative;
+    display:grid;
+    grid-template-columns:repeat(13,40px);
+    gap:2px;
+    justify-content:center;
+    margin:20px auto;
+    position:relative;
   }
   .cell {
-    width: 40px;
-    height: 40px;
-    background: white;
-    border: 1px solid #999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
+    width:40px; height:40px;
+    background:white; border:1px solid #999;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative;
   }
-  .cell.highlight { background: #d0ebff; }
+  .cell.highlight { background:#d0ebff; }
   .piece {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    position: relative;
-    z-index: 1;
-    transition: transform 0.5s ease;
+    width:30px; height:30px; border-radius:50%;
+    color:white; display:flex; align-items:center; justify-content:center;
+    font-weight:bold; position:relative; z-index:1;
   }
-  .red { background: #d9534f; }
-  .blue { background: #0275d8; }
-  .neutral { background: #777; }
-  button {
-    padding: 8px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-  /* Modal */
+  .red { background:#d9534f; }
+  .blue { background:#0275d8; }
+  .neutral { background:#777; }
+  button { padding:8px 14px; font-size:14px; cursor:pointer; margin-top:10px; }
   #modal {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center;
   }
-  #modalContent {
-    background: white;
-    padding: 20px;
-    width: 400px; max-width: 90%;
-    text-align: left;
-    border-radius: 6px;
-  }
+  #modalContent { background:white; padding:20px; width:400px; max-width:90%; text-align:left; border-radius:6px; }
 </style>
 </head>
 <body>
@@ -86,7 +52,7 @@
       <li>Players take turns moving one piece or tower one square (diagonals count).</li>
       <li>Land on any piece (yours, opponent’s, or neutral) to capture it.</li>
       <li>Captured pieces stack to form towers.</li>
-      <li>Taller towers pull in pieces from farther away.</li>
+      <li>Taller towers pull in pieces from farther away, and newly reachable pieces are also pulled in.</li>
       <li>The player who makes the final capture wins.</li>
     </ul>
     <button id="startGameBtn">Start Game</button>
@@ -95,8 +61,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const WIDTH = 13;
-  const HEIGHT = 15;
+  const WIDTH=13, HEIGHT=15;
   let currentPlayer, selected, board;
   const boardDiv = document.getElementById("board");
   const statusDiv = document.getElementById("status");
@@ -105,7 +70,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const startBtn = document.getElementById("startGameBtn");
 
   startBtn.addEventListener("click", () => {
-    modal.style.display = "none";
+    modal.style.display="none";
     setupBoard();
     render();
   });
@@ -115,69 +80,67 @@ document.addEventListener("DOMContentLoaded", function() {
     render();
   });
 
-  function setupBoard() {
-    board = Array.from({ length: HEIGHT }, () => Array(WIDTH).fill(null));
+  function setupBoard(){
+    board = Array.from({length:HEIGHT}, ()=>Array(WIDTH).fill(null));
     placePieces("red");
     placePieces("blue");
     placePieces("neutral");
-    currentPlayer = "red";
-    selected = null;
-    statusDiv.textContent = "Red's Turn";
-    playAgainBtn.style.display = "none";
+    currentPlayer="red";
+    selected=null;
+    statusDiv.textContent="Red's Turn";
+    playAgainBtn.style.display="none";
   }
 
-  function placePieces(color) {
-    let placed = 0;
-    while (placed < 5) {
-      let x = Math.floor(Math.random() * WIDTH);
-      let y = Math.floor(Math.random() * HEIGHT);
-      if (board[y][x]) continue;
-      let ok = true;
-      for (let yy = 0; yy < HEIGHT; yy++)
-        for (let xx = 0; xx < WIDTH; xx++)
-          if (board[yy][xx] && Math.max(Math.abs(x-xx), Math.abs(y-yy)) <= 1) ok = false;
-      if (ok) { board[y][x] = { color, height: 1 }; placed++; }
+  function placePieces(color){
+    let placed=0;
+    while(placed<5){
+      let x=Math.floor(Math.random()*WIDTH);
+      let y=Math.floor(Math.random()*HEIGHT);
+      if(board[y][x]) continue;
+      let ok=true;
+      for(let yy=0; yy<HEIGHT; yy++)
+        for(let xx=0; xx<WIDTH; xx++)
+          if(board[yy][xx] && Math.max(Math.abs(x-xx),Math.abs(y-yy))<=1) ok=false;
+      if(ok){ board[y][x]={color,height:1}; placed++; }
     }
   }
 
-  function render() {
-    boardDiv.innerHTML = "";
-    for (let y=0; y<HEIGHT; y++){
-      for (let x=0; x<WIDTH; x++){
-        const cell = document.createElement("div");
-        cell.className = "cell";
-        if(selected && canMove(selected.x, selected.y, x, y)) cell.classList.add("highlight");
+  function render(){
+    boardDiv.innerHTML="";
+    for(let y=0;y<HEIGHT;y++){
+      for(let x=0;x<WIDTH;x++){
+        const cell=document.createElement("div");
+        cell.className="cell";
+        if(selected && canMove(selected.x,selected.y,x,y)) cell.classList.add("highlight");
 
-        const piece = board[y][x];
+        const piece=board[y][x];
         if(piece){
-          const pDiv = document.createElement("div");
-          pDiv.className = `piece ${piece.color}`;
-          pDiv.textContent = piece.height;
+          const pDiv=document.createElement("div");
+          pDiv.className=`piece ${piece.color}`;
+          pDiv.textContent=piece.height;
           cell.appendChild(pDiv);
         }
 
-        cell.onclick = () => handleClick(x,y);
+        cell.onclick=()=>handleClick(x,y);
         boardDiv.appendChild(cell);
       }
     }
   }
 
-  function handleClick(x, y){
+  function handleClick(x,y){
     if(!selected){
-      if(board[y][x] && board[y][x].color === currentPlayer && hasLegalMove(x,y))
-        selected = { x, y };
+      if(board[y][x] && board[y][x].color===currentPlayer && hasLegalMove(x,y))
+        selected={x,y};
     } else {
-      if(canMove(selected.x, selected.y, x, y)){
-        move(selected.x, selected.y, x, y);
-      }
-      selected = null;
+      if(canMove(selected.x,selected.y,x,y)) move(selected.x,selected.y,x,y);
+      selected=null;
     }
     render();
   }
 
-  function hasLegalMove(x, y){
-    for(let dy=-1; dy<=1; dy++)
-      for(let dx=-1; dx<=1; dx++){
+  function hasLegalMove(x,y){
+    for(let dy=-1;dy<=1;dy++)
+      for(let dx=-1;dx<=1;dx++){
         let nx=x+dx, ny=y+dy;
         if((dx||dy) && nx>=0 && nx<WIDTH && ny>=0 && ny<HEIGHT) return true;
       }
@@ -186,83 +149,91 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function canMove(x1,y1,x2,y2){
     if(!board[y1][x1]) return false;
-    if(Math.max(Math.abs(x1-x2), Math.abs(y1-y2))>1) return false;
+    if(Math.max(Math.abs(x1-x2),Math.abs(y1-y2))>1) return false;
     if(x2<0||x2>=WIDTH||y2<0||y2>=HEIGHT) return false;
     return true;
   }
 
   function move(x1,y1,x2,y2){
-    let tower = board[y1][x1];
-    let target = board[y2][x2];
+    let tower=board[y1][x1];
+    let target=board[y2][x2];
+
     if(target){
-      animateCapture(x2,y2,x2,y2,tower.height,()=>{
-        tower.height += target.height;
-        board[y2][y2] = tower; // update after animation
-        board[y1][x1] = null;
+      animateCapture(x2,y2,x2,y2,target.height,()=>{
+        tower.height+=target.height;
+        board[y2][y2]=tower;
+        board[y1][x1]=null;
         applyGravityAnimated(x2,y2);
       });
     } else {
-      board[y2][x2] = tower;
-      board[y1][x1] = null;
+      board[y2][x2]=tower;
+      board[y1][x1]=null;
       applyGravityAnimated(x2,y2);
     }
   }
 
   function applyGravityAnimated(x,y){
-    const tower = board[y][x];
-    const range = tower.height-1;
-    let toCollect = [];
+    const tower=board[y][x];
+    const collectLoop=()=>{
+      let toCollect=[];
+      const range=tower.height-1;
 
-    for(let yy=0; yy<HEIGHT; yy++){
-      for(let xx=0; xx<WIDTH; xx++){
-        let p = board[yy][xx];
-        if(p && (xx!=x || yy!=y) && Math.max(Math.abs(xx-x), Math.abs(yy-y))<=range)
-          toCollect.push({x:xx,y:yy,height:p.height});
+      for(let yy=0;yy<HEIGHT;yy++){
+        for(let xx=0;xx<WIDTH;xx++){
+          let p=board[yy][xx];
+          if(p && (xx!=x || yy!=y) && Math.max(Math.abs(xx-x),Math.abs(yy-y))<=range)
+            toCollect.push({x:xx,y:yy,height:p.height});
+        }
       }
-    }
 
-    if(toCollect.length===0){
-      if(!checkWin()) switchTurn();
-      render();
-      return;
-    }
-
-    let collectNext = () => {
       if(toCollect.length===0){
         if(!checkWin()) switchTurn();
         render();
         return;
       }
-      const p = toCollect.shift();
-      animateCapture(p.x,p.y,x,y,p.height,()=>{
-        tower.height += p.height;
-        board[p.y][p.x] = null;
-        collectNext();
-      });
+
+      const next=()=>{
+        if(toCollect.length===0){
+          collectLoop(); // recalc range after each batch
+          return;
+        }
+        const p=toCollect.shift();
+        animateCapture(p.x,p.y,x,y,p.height,()=>{
+          tower.height+=p.height;
+          board[p.y][p.x]=null;
+          next();
+        });
+      };
+      next();
     };
-    collectNext();
+    collectLoop();
   }
 
   function animateCapture(fromX,fromY,toX,toY,height,callback){
     const fromCell = boardDiv.children[fromY*WIDTH+fromX];
     const pieceDiv = fromCell.querySelector(".piece");
-    if(!pieceDiv) { callback(); return; }
+    if(!pieceDiv){ callback(); return; }
 
     const rect = fromCell.getBoundingClientRect();
-    pieceDiv.style.position = "fixed";
-    pieceDiv.style.left = rect.left+"px";
-    pieceDiv.style.top = rect.top+"px";
-    pieceDiv.style.zIndex = 1000;
+    pieceDiv.style.position="fixed";
+    pieceDiv.style.left=rect.left+"px";
+    pieceDiv.style.top=rect.top+"px";
+    pieceDiv.style.zIndex=1000;
 
     document.body.appendChild(pieceDiv);
 
     const toCell = boardDiv.children[toY*WIDTH+toX];
     const destRect = toCell.getBoundingClientRect();
 
+    const dx = Math.abs(destRect.left - rect.left);
+    const dy = Math.abs(destRect.top - rect.top);
+    const distance = Math.sqrt(dx*dx + dy*dy);
+    const duration = 0.8 + distance/200; // farther pieces take longer
+
     requestAnimationFrame(()=>{
-      pieceDiv.style.transition = "all 0.5s ease";
-      pieceDiv.style.left = destRect.left+"px";
-      pieceDiv.style.top = destRect.top+"px";
+      pieceDiv.style.transition=`all ${duration}s cubic-bezier(0.4,0,0.2,1)`;
+      pieceDiv.style.left=destRect.left+"px";
+      pieceDiv.style.top=destRect.top+"px";
     });
 
     pieceDiv.addEventListener("transitionend",()=>{
@@ -272,15 +243,15 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function switchTurn(){
-    currentPlayer = currentPlayer==="red"?"blue":"red";
-    statusDiv.textContent = currentPlayer.charAt(0).toUpperCase()+currentPlayer.slice(1)+"'s Turn";
+    currentPlayer=currentPlayer==="red"?"blue":"red";
+    statusDiv.textContent=currentPlayer.charAt(0).toUpperCase()+currentPlayer.slice(1)+"'s Turn";
   }
 
   function checkWin(){
     let count=0;
     for(let row of board) for(let cell of row) if(cell) count++;
     if(count===1){
-      statusDiv.textContent = currentPlayer.toUpperCase()+" WINS!";
+      statusDiv.textContent=currentPlayer.toUpperCase()+" WINS!";
       playAgainBtn.style.display="inline-block";
       return true;
     }
@@ -289,5 +260,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 });
 </script>
+
 </body>
 </html>
