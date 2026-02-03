@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Towers</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #f4f4f4;
+  margin:0;
+  padding:0;
+}
+#status {
+  font-size:18px;
+  font-weight:bold;
+  margin:10px;
+}
+#board {
+  width: 546px; /* 13*42 */
+  height: 630px; /* 15*42 */
+  position: relative;
+  margin: 20px auto;
+  border: 2px solid #999;
+  background: #fff;
+}
+.cell {
+  width: 40px;
+  height: 40px;
+  position: absolute;
+  border: 1px solid #eee;
+}
+.piece {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  transition: all 1.5s cubic-bezier(0.2,0.8,0.4,1);
+  z-index: 10;
+  cursor: pointer;
+}
+.red { background: #d9534f; }
+.blue { background: #0275d8; }
+.neutral { background: #777; }
+
+#modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#modalContent {
+  background: white;
+  padding: 20px;
+  width: 420px;
+  border-radius: 6px;
+  text-align: left;
+}
+button { cursor:pointer; }
+</style>
+</head>
+<body>
+
+<h1>Gravity Towers</h1>
+<div id="status"></div>
+<div id="board"></div>
+
+<div id="modal">
+  <div id="modalContent">
+    <h2>How to Play</h2>
+    <ul>
+      <li>Move one piece one square (including diagonals).</li>
+      <li>Landing on another piece stacks mass.</li>
+      <li>Towers (height ≥ 2) have gravity at all times.</li>
+      <li>Entering gravity causes capture.</li>
+      <li>The game ends when all mass is in one tower.</li>
+    </ul>
+    <button id="startGame">Start Game</button>
+  </div>
+</div>
+
+<script>
+window.onload = function() {
+const WIDTH=13, HEIGHT=15;
+let board=[], currentPlayer="red", selected=null, totalMass=0;
+const boardDiv = document.getElementById("board");
+const statusDiv = document.getElementById("status");
+
+// start button
+document.getElementById("startGame").onclick = () => {
+  document.getElementById("modal").style.display = "none";
+  startGame();
+};
+
+// helper: convert board coordinates to pixel position
+function cellPos(x,y){ return {left: x*42, top: y*42}; }
+
+function startGame() {
+  board = Array.from({length: HEIGHT}, ()=>Array(WIDTH).fill(null));
+  totalMass = 0;
+  placePieces("red");
+  placePieces("blue");
+  placePieces("neutral");
+  currentPlayer = "red";
+  selected = null;
+  updateStatus();
+  render();
+}
+
+function placePieces(color) {
+  let n = 0;
+  while(n<5){
+    let x = Math.floor(Math.random()*WIDTH);
+    let y = Math.floor(Math.random()*HEIGHT);
+    if(!board[y][x]){
+      board[y][x] = {color, height:1};
+      totalMass++;
+      n++;
+    }
+  }
+}
+
+function updateStatus() {
+  statusDiv.textContent = currentPlayer.toUpperCase() + "'s Turn";
+}
+
+function render(){
+  boardDiv.innerHTML = "";
+  // draw cells
+  for(let y=0;y<HEIGHT;y++){
+    for(let x=0;x<WIDTH;x++){
+      const cell = document.createElement("div");
+      cell.className="cell";
+      const pos = cellPos(x,y);
+      cell.style.left = pos.left+"px";
+      cell.style.top = pos.top+"px";
+      boardDiv.appendChild(cell);
+    }
+  }
+  // draw pieces
+  for(let y=0;y<HEIGHT;y++){
+    for(let x=0;x<WIDTH;x++){
+      const p = board[y][x];
+      if(!p) continue;
+      const pos = cellPos(x,y);
+      const el = document.createElement("div");
+      el.className = "piece "+p.color;
+      el.textContent = p.height;
+      el.style.left = pos.left+"px";
+      el.style.top = pos.top+"px";
+      el.onclick = ()=> handleClick(x,y);
+      boardDiv.appendChild(el);
+    }
+  }
+}
+
+function canMove(x1,y1,x2,y2){
+  return Math.max(Math.abs(x1-x2), Math.abs(y1-y2))===1;
+}
+
+function handleClick(x,y){
+  const piece = board[y][x];
+  if(!selected){
+    if(piece && piece.color===currentPlayer){
+      selected={x,y};
+    }
+    return;
+  }
+  // move attempt
+  if(!canMove(selected.x, selected.y, x, y)){
+    selected = null;
+    render();
+    return;
+  }
+  executeMove(selected.x, selected.y, x, y);
+}
+
+function executeMove(x1,y1,x2,y2){
+  const mover = board[y1][x1];
+  const target = board[y2][x2];
+  board[y1][x1] = null;
+  selected = null;
+
+  // move animation
+  const fromPos = cellPos(x1,y1);
+  const toPos = cellPos(x2,y2);
+
+  const temp = document.createElement("div");
+  temp.className="piece "+mover.color;
+  temp.textContent = mover.height;
+  temp.style.left = fromPos.left+"px";
+  temp.style.top = fromPos.top+"px";
+  boardDiv.appendChild(temp);
+
+  const dist = Math.max(Math.abs(x2-x1), Math.abs(y2-y1));
+  const duration = 1.5 + dist*1.5;
+
+  requestAnimationFrame(()=>{
+    temp.style.transition = `all ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
+    temp.style.left = toPos.left+"px";
+    temp.style.top = toPos.top+"px";
+  });
+
+  temp.ontransitionend = ()=>{
+    board[y2][x2] = mover;
+    if(target) mover.height += target.height;
+    boardDiv.removeChild(temp);
+
+    // resolve gravity after move
+    const gravityAnimations = resolveGravity();
+    playAnimationsSequentially(gravityAnimations, endTurn);
+  };
+}
+
+// gravity capture animations
+function resolveGravity(){
+  const animations=[];
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let y=0;y<HEIGHT;y++){
+      for(let x=0;x<WIDTH;x++){
+        const tower = board[y][x];
+        if(!tower || tower.height<2) continue;
+        const range = tower.height-1;
+        for(let yy=0;yy<HEIGHT;yy++){
+          for(let xx=0;xx<WIDTH;xx++){
+            if(xx===x && yy===y) continue;
+            const piece = board[yy][xx];
+            if(!piece) continue;
+            const dist=Math.max(Math.abs(xx-x), Math.abs(yy-y));
+            if(dist<=range){
+              animations.push({from:{x:xx,y:yy}, to:{x,y}, mover:tower, target:piece});
+              tower.height += piece.height;
+              board[yy][xx]=null;
+              changed=true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return animations;
+}
+
+// play each gravity animation sequentially
+function playAnimationsSequentially(list, done){
+  if(list.length===0){ render(); done(); return; }
+  let i=0;
+  function next(){
+    if(i>=list.length){ render(); done(); return; }
+    const anim = list[i]; i++;
+    const fromPos = cellPos(anim.from.x, anim.from.y);
+    const toPos = cellPos(anim.to.x, anim.to.y);
+    const dist = Math.max(Math.abs(anim.to.x-anim.from.x), Math.abs(anim.to.y-anim.from.y));
+    const duration = 1.5 + dist*1.5;
+
+    const temp = document.createElement("div");
+    temp.className="piece "+anim.target.color;
+    temp.textContent = anim.target.height;
+    temp.style.left = fromPos.left+"px";
+    temp.style.top = fromPos.top+"px";
+    boardDiv.appendChild(temp);
+
+    requestAnimationFrame(()=>{
+      temp.style.transition = `all ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
+      temp.style.left = toPos.left+"px";
+      temp.style.top = toPos.top+"px";
+    });
+
+    temp.ontransitionend = ()=>{
+      boardDiv.removeChild(temp);
+      next();
+    };
+  }
+  next();
+}
+
+function endTurn(){
+  if(checkWin()) return;
+  currentPlayer = currentPlayer==="red"?"blue":"red";
+  updateStatus();
+  render();
+}
+
+function checkWin(){
+  let pieces=0, lastPiece=null;
+  for(const r of board)for(const c of r)if(c){ pieces++; lastPiece=c; }
+  if(pieces===1 && lastPiece.height===totalMass){
+    statusDiv.textContent = lastPiece.color.toUpperCase()+" WINS!";
+    return true;
+  }
+  return false;
+}
+};
+</script>
+
+</body>
+</html>
