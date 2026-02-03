@@ -8,8 +8,8 @@ body {
   font-family: Arial, sans-serif;
   text-align: center;
   background: #f4f4f4;
-  margin: 0;
-  padding: 0;
+  margin:0;
+  padding:0;
 }
 #status {
   font-size: 18px;
@@ -17,18 +17,20 @@ body {
   margin: 10px;
 }
 #board {
-  width: 15*42px;
-  height: 13*42px;
-  position: relative;
+  display: grid;
+  grid-template-columns: repeat(15, 40px);
+  grid-template-rows: repeat(13, 40px);
+  gap: 2px;
   margin: 20px auto;
   border: 2px solid #999;
   background: #fff;
+  width: max-content;
 }
 .cell {
   width: 40px;
   height: 40px;
-  position: absolute;
-  border: 1px solid #eee;
+  background: #eee;
+  position: relative;
 }
 .piece {
   width: 30px;
@@ -40,9 +42,11 @@ body {
   align-items: center;
   justify-content: center;
   position: absolute;
-  transition: all 1.5s cubic-bezier(0.2,0.8,0.4,1);
-  z-index: 10;
+  top: 5px;
+  left: 5px;
   cursor: pointer;
+  transition: all 1.2s ease;
+  z-index: 10;
 }
 .red { background: #d9534f; }
 .blue { background: #0275d8; }
@@ -78,8 +82,8 @@ button { cursor:pointer; }
     <ul>
       <li>Move one piece one square (including diagonals).</li>
       <li>Landing on another piece stacks mass.</li>
-      <li>Towers (height ≥ 2) have gravity at all times.</li>
-      <li>Gravity pulls in nearby pieces, adding to tower height.</li>
+      <li>Towers (height ≥ 2) always have gravity and pull in nearby pieces.</li>
+      <li>Captured pieces take the tower’s color.</li>
       <li>Game ends when all mass is in a single tower.</li>
     </ul>
     <button id="startGame">Start Game</button>
@@ -87,33 +91,30 @@ button { cursor:pointer; }
 </div>
 
 <script>
-window.onload = function() {
-const WIDTH = 15, HEIGHT = 13;
-let board = [], currentPlayer = "red", selected = null, totalMass = 0;
-const boardDiv = document.getElementById("board");
-const statusDiv = document.getElementById("status");
+window.onload = function(){
+const WIDTH=15, HEIGHT=13;
+let board=[], currentPlayer="red", selected=null, totalMass=0;
+const boardDiv=document.getElementById("board");
+const statusDiv=document.getElementById("status");
 
-// helper: pixel position of a cell
-function cellPos(x,y){ return {left: x*42, top: y*42}; }
-
-document.getElementById("startGame").onclick = () => {
-  document.getElementById("modal").style.display = "none";
+document.getElementById("startGame").onclick = ()=>{
+  document.getElementById("modal").style.display="none";
   startGame();
 };
 
 function startGame(){
-  board = Array.from({length: HEIGHT}, ()=>Array(WIDTH).fill(null));
-  totalMass = 0;
+  board=Array.from({length:HEIGHT},()=>Array(WIDTH).fill(null));
+  totalMass=0;
   placePieces("red");
   placePieces("blue");
   placePieces("neutral");
-  currentPlayer = "red";
-  selected = null;
+  currentPlayer="red";
+  selected=null;
   updateStatus();
   render();
 }
 
-// place 5 pieces per color with at least one empty square between any two
+// place pieces with at least one empty square between
 function placePieces(color){
   let n=0;
   while(n<5){
@@ -139,35 +140,24 @@ function adjacentOccupied(x,y){
 }
 
 function updateStatus(){
-  statusDiv.textContent = currentPlayer.toUpperCase()+"'s Turn";
+  statusDiv.textContent=currentPlayer.toUpperCase()+"'s Turn";
 }
 
 function render(){
-  boardDiv.innerHTML = "";
-  // cells
+  boardDiv.innerHTML="";
   for(let y=0;y<HEIGHT;y++){
     for(let x=0;x<WIDTH;x++){
       const cell=document.createElement("div");
       cell.className="cell";
-      const pos=cellPos(x,y);
-      cell.style.left=pos.left+"px";
-      cell.style.top=pos.top+"px";
       boardDiv.appendChild(cell);
-    }
-  }
-  // pieces
-  for(let y=0;y<HEIGHT;y++){
-    for(let x=0;x<WIDTH;x++){
       const p=board[y][x];
-      if(!p) continue;
-      const pos=cellPos(x,y);
-      const el=document.createElement("div");
-      el.className="piece "+p.color;
-      el.textContent=p.height;
-      el.style.left=pos.left+"px";
-      el.style.top=pos.top+"px";
-      el.onclick = ()=> handleClick(x,y);
-      boardDiv.appendChild(el);
+      if(p){
+        const piece=document.createElement("div");
+        piece.className="piece "+p.color;
+        piece.textContent=p.height;
+        piece.onclick=()=>handleClick(x,y);
+        cell.appendChild(piece);
+      }
     }
   }
 }
@@ -179,9 +169,7 @@ function canMove(x1,y1,x2,y2){
 function handleClick(x,y){
   const piece=board[y][x];
   if(!selected){
-    if(piece && piece.color===currentPlayer){
-      selected={x,y};
-    }
+    if(piece && piece.color===currentPlayer) selected={x,y};
     return;
   }
   if(!canMove(selected.x,selected.y,x,y)){
@@ -191,40 +179,22 @@ function handleClick(x,y){
 }
 
 function executeMove(x1,y1,x2,y2){
-  const mover = board[y1][x1];
-  const target = board[y2][x2];
+  const mover=board[y1][x1];
+  const target=board[y2][x2];
   board[y1][x1]=null;
   selected=null;
 
-  const fromPos = cellPos(x1,y1);
-  const toPos = cellPos(x2,y2);
+  if(target){ mover.height += target.height; }
 
-  // create temp piece for animation
-  const temp=document.createElement("div");
-  temp.className="piece "+mover.color;
-  temp.textContent=mover.height;
-  temp.style.left=fromPos.left+"px";
-  temp.style.top=fromPos.top+"px";
-  boardDiv.appendChild(temp);
+  board[y2][x2]=mover;
+  render();
 
-  const dist=Math.max(Math.abs(x2-x1),Math.abs(y2-y1));
-  const duration = 1.5 + dist*1.5;
-
-  requestAnimationFrame(()=>{
-    temp.style.transition=`all ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
-    temp.style.left=toPos.left+"px";
-    temp.style.top=toPos.top+"px";
-  });
-
-  temp.ontransitionend = ()=>{
-    board[y2][x2]=mover;
-    if(target) mover.height += target.height;
-    boardDiv.removeChild(temp);
-    const animations=resolveGravity();
-    playAnimationsSequentially(animations,endTurn);
-  };
+  // gravity resolves after move
+  const animations = resolveGravity();
+  playAnimationsSequentially(animations,endTurn);
 }
 
+// resolve gravity pulls recursively
 function resolveGravity(){
   const animations=[];
   let changed=true;
@@ -242,7 +212,7 @@ function resolveGravity(){
             if(!piece) continue;
             const dist=Math.max(Math.abs(xx-x),Math.abs(yy-y));
             if(dist<=range){
-              animations.push({from:{x:xx,y:yy}, to:{x,y}, mover:tower, target:piece});
+              animations.push({from:{x:xx,y:yy},to:{x,y},target:piece,mover:tower});
               tower.height += piece.height;
               board[yy][xx]=null;
               changed=true;
@@ -261,26 +231,29 @@ function playAnimationsSequentially(list,done){
   function next(){
     if(i>=list.length){ render(); done(); return; }
     const anim=list[i]; i++;
-    const fromPos=cellPos(anim.from.x,anim.from.y);
-    const toPos=cellPos(anim.to.x,anim.to.y);
-    const dist=Math.max(Math.abs(anim.to.x-anim.from.x),Math.abs(anim.to.y-anim.from.y));
-    const duration=1.5+dist*1.5;
-
-    const temp=document.createElement("div");
+    const fromCell = boardDiv.children[anim.from.y*WIDTH+anim.from.x];
+    const toCell = boardDiv.children[anim.to.y*WIDTH+anim.to.x];
+    const temp = document.createElement("div");
     temp.className="piece "+anim.target.color;
     temp.textContent=anim.target.height;
-    temp.style.left=fromPos.left+"px";
-    temp.style.top=fromPos.top+"px";
-    boardDiv.appendChild(temp);
+    document.body.appendChild(temp);
+    const fromRect = fromCell.getBoundingClientRect();
+    const toRect = toCell.getBoundingClientRect();
+    temp.style.position="fixed";
+    temp.style.left=fromRect.left+5+"px";
+    temp.style.top=fromRect.top+5+"px";
+
+    const dist = Math.max(Math.abs(anim.to.x-anim.from.x),Math.abs(anim.to.y-anim.from.y));
+    const duration = 1.2 + dist*1.2;
 
     requestAnimationFrame(()=>{
-      temp.style.transition=`all ${duration}s cubic-bezier(0.2,0.8,0.4,1)`;
-      temp.style.left=toPos.left+"px";
-      temp.style.top=toPos.top+"px";
+      temp.style.transition=`all ${duration}s ease`;
+      temp.style.left=toRect.left+5+"px";
+      temp.style.top=toRect.top+5+"px";
     });
 
     temp.ontransitionend=()=>{
-      boardDiv.removeChild(temp);
+      document.body.removeChild(temp);
       next();
     };
   }
@@ -289,7 +262,6 @@ function playAnimationsSequentially(list,done){
 
 function endTurn(){
   if(checkWin()) return;
-  // skip player if no pieces
   let nextPlayer=currentPlayer==="red"?"blue":"red";
   if(!playerHasPieces(nextPlayer)) nextPlayer=currentPlayer;
   currentPlayer=nextPlayer;
@@ -313,6 +285,5 @@ function checkWin(){
 }
 };
 </script>
-
 </body>
 </html>
