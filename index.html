@@ -158,19 +158,49 @@ document.addEventListener("DOMContentLoaded", function() {
     const tower = board[y1][x1];
     const target = board[y2][x2];
 
-    // Remove moving piece from original cell immediately
+    const fromCell = boardDiv.children[y1 * WIDTH + x1];
+    const toCell = boardDiv.children[y2 * WIDTH + x2];
+    const pieceDiv = fromCell.querySelector(".piece");
+    if(!pieceDiv) return;
+
+    // Remove moving piece from board immediately
     board[y1][x1] = null;
 
-    if(target){
-      animateCapture(x2,y2,x2,y2,target.height,()=>{
-        tower.height += target.height;
-        board[y2][y2] = tower;
-        applyGravityAnimated(x2,y2);
-      });
-    } else {
+    // Bring pieceDiv to body for animation
+    const rect = fromCell.getBoundingClientRect();
+    pieceDiv.style.position = "fixed";
+    pieceDiv.style.left = rect.left + "px";
+    pieceDiv.style.top = rect.top + "px";
+    pieceDiv.style.zIndex = 1000;
+    document.body.appendChild(pieceDiv);
+
+    const destRect = toCell.getBoundingClientRect();
+    const dx = Math.abs(destRect.left - rect.left);
+    const dy = Math.abs(destRect.top - rect.top);
+    const distance = Math.sqrt(dx*dx + dy*dy);
+    const duration = 0.8 + distance/200;
+
+    requestAnimationFrame(()=>{
+      pieceDiv.style.transition = `all ${duration}s cubic-bezier(0.4,0,0.2,1)`;
+      pieceDiv.style.left = destRect.left + "px";
+      pieceDiv.style.top = destRect.top + "px";
+    });
+
+    pieceDiv.addEventListener("transitionend", ()=>{
+      if(target) tower.height += target.height;
       board[y2][x2] = tower;
+
+      // Place pieceDiv back in cell and update number
+      pieceDiv.style.position = "relative";
+      pieceDiv.style.left = "0px";
+      pieceDiv.style.top = "0px";
+      pieceDiv.style.zIndex = 1;
+      pieceDiv.textContent = tower.height;
+      toCell.appendChild(pieceDiv);
+
+      // Apply gravity after landing
       applyGravityAnimated(x2,y2);
-    }
+    }, {once:true});
   }
 
   function applyGravityAnimated(x,y){
@@ -200,48 +230,12 @@ document.addEventListener("DOMContentLoaded", function() {
           return;
         }
         const p = toCollect.shift();
-        animateCapture(p.x,p.y,x,y,p.height,()=>{
-          tower.height += p.height;
-          board[p.y][p.x] = null;
-          next();
-        });
+        move(p.x,p.y,x,y); // recursive move for gravity
+        setTimeout(next, 100); // small delay between sequential captures
       };
       next();
     };
     collectLoop();
-  }
-
-  function animateCapture(fromX,fromY,toX,toY,height,callback){
-    const fromCell = boardDiv.children[fromY*WIDTH+fromX];
-    const pieceDiv = fromCell ? fromCell.querySelector(".piece") : null;
-    if(!pieceDiv){ callback(); return; }
-
-    const rect = fromCell.getBoundingClientRect();
-    pieceDiv.style.position="fixed";
-    pieceDiv.style.left = rect.left+"px";
-    pieceDiv.style.top = rect.top+"px";
-    pieceDiv.style.zIndex = 1000;
-
-    document.body.appendChild(pieceDiv);
-
-    const toCell = boardDiv.children[toY*WIDTH+toX];
-    const destRect = toCell.getBoundingClientRect();
-
-    const dx = Math.abs(destRect.left - rect.left);
-    const dy = Math.abs(destRect.top - rect.top);
-    const distance = Math.sqrt(dx*dx + dy*dy);
-    const duration = 0.8 + distance/200; // farther pieces move longer
-
-    requestAnimationFrame(()=>{
-      pieceDiv.style.transition = `all ${duration}s cubic-bezier(0.4,0,0.2,1)`;
-      pieceDiv.style.left = destRect.left+"px";
-      pieceDiv.style.top = destRect.top+"px";
-    });
-
-    pieceDiv.addEventListener("transitionend", ()=>{
-      pieceDiv.remove();
-      callback();
-    }, {once:true});
   }
 
   function switchTurn(){
