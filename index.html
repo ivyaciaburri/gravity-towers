@@ -63,6 +63,7 @@
 document.addEventListener("DOMContentLoaded", function() {
   const WIDTH=13, HEIGHT=15;
   let currentPlayer, selected, board;
+  let isAnimating = false; // new flag to prevent clicks during animation
   const boardDiv = document.getElementById("board");
   const statusDiv = document.getElementById("status");
   const playAgainBtn = document.getElementById("playAgain");
@@ -127,13 +128,18 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function handleClick(x,y){
+  function handleClick(x, y){
+    if(isAnimating) return; // ignore clicks while animating
     if(!selected){
       if(board[y][x] && board[y][x].color===currentPlayer && hasLegalMove(x,y))
         selected={x,y};
     } else {
-      if(canMove(selected.x,selected.y,x,y)) move(selected.x,selected.y,x,y);
-      selected=null;
+      if(x === selected.x && y === selected.y){
+        selected = null; // deselect if clicking same piece
+      } else if(canMove(selected.x, selected.y, x, y)) {
+        move(selected.x, selected.y, x, y);
+        selected = null;
+      }
     }
     render();
   }
@@ -157,25 +163,26 @@ document.addEventListener("DOMContentLoaded", function() {
   function move(x1,y1,x2,y2){
     const tower = board[y1][x1];
     const target = board[y2][x2];
-
     const fromCell = boardDiv.children[y1 * WIDTH + x1];
     const toCell = boardDiv.children[y2 * WIDTH + x2];
     const pieceDiv = fromCell.querySelector(".piece");
     if(!pieceDiv) return;
 
-    // Remove from origin
-    board[y1][x1] = null;
+    isAnimating = true; // lock input
 
-    // Simple 1-on-1 capture
+    // Simple 1-on-1 capture (instant)
     if(tower.height===1 && target && target.height===1){
       tower.height += target.height;
       board[y2][x2] = tower;
+      board[y1][x1] = null;
+      isAnimating = false;
       render();
-      applyGravityAnimated(x2,y2); // in case tower grows beyond 1
+      applyGravityAnimated(x2, y2);
       return;
     }
 
     // Tower or multi-piece capture: animate
+    board[y1][x1] = null;
     const rect = fromCell.getBoundingClientRect();
     pieceDiv.style.position = "fixed";
     pieceDiv.style.left = rect.left + "px";
@@ -205,6 +212,7 @@ document.addEventListener("DOMContentLoaded", function() {
       pieceDiv.textContent = tower.height;
       toCell.appendChild(pieceDiv);
 
+      isAnimating = false; // unlock clicks
       applyGravityAnimated(x2,y2);
     }, {once:true});
   }
@@ -235,9 +243,9 @@ document.addEventListener("DOMContentLoaded", function() {
         move(p.x,p.y,x,y); // recursive move for gravity
         setTimeout(next, 100);
       };
-      next();
+      // Only animate if tower height >1
+      if(tower.height>1) next();
     };
-    // Only animate if tower is taller than 1 or multiple captures
     if(tower.height>1) collectLoop();
   }
 
