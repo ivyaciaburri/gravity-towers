@@ -21,7 +21,8 @@
     display:flex; align-items:center; justify-content:center;
     cursor:pointer; position:relative;
   }
-  .cell.highlight { background:#d0ebff; }
+  .cell.highlightMove { background:#d0ebff; }      /* moveable squares */
+  .cell.highlightCapture { background:#ffeb99; }   /* tower pull radius */
   .piece {
     width:30px; height:30px; border-radius:50%;
     color:white; display:flex; align-items:center; justify-content:center;
@@ -54,7 +55,8 @@
       <li>Captured pieces stack to form towers.</li>
       <li>Taller towers pull in pieces from farther away, and newly reachable pieces are also pulled in.</li>
       <li>The player who makes the final capture wins.</li>
-      <li>Hover over a tower to see which squares it can pull pieces from.</li>
+      <li>Hover over a tower to see which squares it can pull pieces from (yellow).</li>
+      <li>Squares you can move to are highlighted in blue.</li>
     </ul>
     <button id="startGameBtn">Start Game</button>
   </div>
@@ -113,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function() {
       for(let x=0;x<WIDTH;x++){
         const cell=document.createElement("div");
         cell.className="cell";
-        if(selected && canMove(selected.x,selected.y,x,y)) cell.classList.add("highlight");
+        if(selected && canMove(selected.x,selected.y,x,y)) cell.classList.add("highlightMove");
 
         const piece=board[y][x];
         if(piece){
@@ -125,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function() {
           // Hover radius highlight
           if(piece.height>1){
             pDiv.addEventListener("mouseenter", ()=>{
-              highlightRadius(x,y,piece.height-1);
+              highlightCaptureRadius(x,y,piece.height-1);
             });
             pDiv.addEventListener("mouseleave", ()=>{
               clearHighlights();
@@ -139,12 +141,12 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function highlightRadius(x,y,range){
+  function highlightCaptureRadius(x,y,range){
     for(let yy=0;yy<HEIGHT;yy++){
       for(let xx=0;xx<WIDTH;xx++){
         if(Math.max(Math.abs(xx-x),Math.abs(yy-y))<=range){
           const cell = boardDiv.children[yy*WIDTH + xx];
-          cell.classList.add("highlight");
+          cell.classList.add("highlightCapture");
         }
       }
     }
@@ -152,7 +154,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function clearHighlights(){
     for(let i=0;i<boardDiv.children.length;i++){
-      boardDiv.children[i].classList.remove("highlight");
+      boardDiv.children[i].classList.remove("highlightMove");
+      boardDiv.children[i].classList.remove("highlightCapture");
     }
   }
 
@@ -198,8 +201,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
     isAnimating = true;
 
-    // Simple 1-on-1 capture (instant)
-    if(tower.height===1 && target && target.height===1){
+    // Move to empty square (simple move)
+    if(!target){
+      board[y2][x2] = tower;
+      board[y1][x1] = null;
+      isAnimating = false;
+      render();
+      switchTurn();
+      return;
+    }
+
+    // Simple 1-on-1 capture
+    if(tower.height===1 && target.height===1){
       tower.height += target.height;
       board[y2][x2] = tower;
       board[y1][x1] = null;
@@ -209,7 +222,7 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
 
-    // Tower or multi-piece capture: animate
+    // Tower/multi capture: animate
     board[y1][x1] = null;
     const rect = fromCell.getBoundingClientRect();
     pieceDiv.style.position = "fixed";
